@@ -37,7 +37,7 @@ import urllib2  # required for retrieving remote files.
 import ftplib  # require for ftp downloads
 
 import shutil  # required for DeleteFolderContents()
-
+import json  # required for UpdateServicesJsonFile() (updating services JSON file)
 
 # ------------------------------------------------------------
 # Read configuration settings
@@ -46,6 +46,44 @@ import shutil  # required for DeleteFolderContents()
 pkl_file = open('config.pkl', 'rb')
 myConfig = pickle.load(pkl_file)
 pkl_file.close()
+
+
+class MapService(object):
+    """
+        A class to hold information about a map or image service.  i.e.
+          'adminURL': 'https://gis1.servirglobal.net/arcgis/admin',
+          'username': 'someVal',
+          'password': 'someVal',
+          'folder': 'Global',
+          'svcName': 'IMERG_Accumulation_ImgSvc',
+          'svcType': 'ImageServer'}
+    """
+
+    def __init__(self, url="", uname="", psswd="", fldr="", svc_name="", svc_type=""):
+        self.adminURL = url
+        self.username = uname
+        self.password = psswd
+        self.folder = fldr
+        self.svcName = svc_name
+        self.svcType = svc_type
+
+    def adminURL(self, url):
+        self.adminURL = url
+
+    def username(self, uname):
+        self.username = uname
+
+    def password(self, psswd):
+        self.password = psswd
+
+    def folder(self, fldr):
+        self.folder = fldr
+
+    def svcName(self, svc_name):
+        self.svcName = svc_name
+
+    def svcType(self, svc_type):
+        self.svcType = svc_type
 
 
 def setupArgs():
@@ -181,6 +219,55 @@ def deleteFolderContents(folder):
             logging.error('### Error occurred in deleteFolderContents removing temp folder ###, %s' % e)
 
 
+def UpdateServicesJsonFile(jFile, serviceName, odateUpdated):
+    """
+    Read the json file and update the lastUpdated for the specified svcName.
+    jFile should be the full path and filename for the json file.
+    """
+    try:
+
+        # Convert the date object passed in to a formatted string
+        sdateUpdated = odateUpdated.strftime('%Y-%m-%d %H:%M:%S')
+
+        if os.path.isfile(jFile):
+
+            # Open and read the file
+            with open(jFile, "r") as jf:
+                data = json.load(jf)
+            jf.close()
+
+            # Update the desired service info
+            bUpdated = False
+            for svc in data["Services"]:
+                if svc["svcName"] == serviceName:
+                    svc["lastUpdated"] = sdateUpdated
+                    bUpdated = True
+                    break
+
+            # Check to see if anything was updated...
+            if not bUpdated:
+                # The service name didn't exist, so lets add it.
+                data["Services"].append(
+                    {
+                        "svcName": serviceName,
+                        "lastUpdated": sdateUpdated
+                    }
+                )
+
+            # Open and write the file
+            with open(jFile, "w") as f:
+                json.dump(data, f)
+            f.close()
+
+        else:
+            logging.info("JSON file for tracking services updates not found: {0}".format(jFile))
+
+    except:
+        logging.warning("Error updating Services JSON file with last updated date...")
+        err = capture_exception()
+        logging.error(err)
+
+
 def Get_StartDateTime_FromString(theString, regExp_Pattern, source_dateFormat):
     """
     # Search a string (or filename) for a date by using the regular expression pattern passed in, then use the
@@ -242,7 +329,7 @@ def GetLatest_EarlyOrLateDate_fromMosaicDataset(mosaicDS, early_or_late):
                 theDate = datetime.datetime.strptime(oneDayAgo.strftime(GDBDateFormat), GDBDateFormat)
             elif "LATE" in early_or_late:
                 # Randomly default to 5 days back from today
-                xDaysAgo = datetime.datetime.now() - datetime.timedelta(days=3)
+                xDaysAgo = datetime.datetime.now() - datetime.timedelta(days=5)
                 theDate = datetime.datetime.strptime(xDaysAgo.strftime(GDBDateFormat), GDBDateFormat)  # currently %Y%m%d%H%M  i.e. 201810311630 (2018/10/31 4:30 PM)
 
         return theDate
@@ -868,10 +955,9 @@ def LoadEarlyOrLateRasters(temp_workspace, early_or_late):
     """
     try:
         arcpy.CheckOutExtension("Spatial")
-        # inSQLClause = "VALUE >= 0"
         # We do not want the zero values and we also do not want the "NoData" value of 29999.
         # So let's extract only the values above 0 and less than 29900.
-        inSQLClause = "VALUE > 0"
+        inSQLClause = "VALUE > 0 AND VALUE < 29999"
         arcpy.env.workspace = temp_workspace
         arcpy.env.overwriteOutput = True
 
@@ -962,66 +1048,59 @@ def LoadEarlyOrLateRasters(temp_workspace, early_or_late):
         logging.error(err)
 
 
-def refreshService():
+def refreshService(clsSvc):
     """
-    Restart the ArcGIS Service (Stop and Start) using the URL token service.
+        Restart the ArcGIS Service (Stop and Start) using the URL token service and class object passed in.
     """
-    # Grab the needed config settings for this service
-    svc_AdminURL = GetConfigString('svc_adminURL')
-    svc_Username = GetConfigString('svc_username')
-    svc_Password = GetConfigString('svc_password')
-    svc_Folder = GetConfigString('svc_folder')
-    svc_Type = GetConfigString('svc_Type')
-    svc_Name = GetConfigString('svc_Name')
 
     # Try and stop the service
     try:
         # Get a token from the Administrator Directory
-        tokenParams = urllib.urlencode({"f": "json", "username": svc_Username,
-                                        "password": svc_Password, "client": "requestip"})
-        tokenResponse = urllib.urlopen(svc_AdminURL + "/generateToken?", tokenParams).read()
+        tokenParams = urllib.urlencode({"f": "json", "username": clsSvc.username,
+                                        "password": clsSvc.password, "client": "requestip"})
+        tokenResponse = urllib.urlopen(clsSvc.adminURL + "/generateToken?", tokenParams).read()
         tokenResponseJSON = json.loads(tokenResponse)
         token = tokenResponseJSON["token"]
 
         # Attempt to stop the service
         stopParams = urllib.urlencode({"token": token, "f": "json"})
-        stopResponse = urllib.urlopen(svc_AdminURL + "/services/" + svc_Folder + "/" + svc_Name + "." +
-                                      svc_Type + "/stop?", stopParams).read()
+        stopResponse = urllib.urlopen(clsSvc.adminURL + "/services/" + clsSvc.folder + "/" + clsSvc.svcName + "." +
+                                      clsSvc.svcType + "/stop?", stopParams).read()
         stopResponseJSON = json.loads(stopResponse)
         stopStatus = stopResponseJSON["status"]
 
-        if stopStatus <> "success":
-            logging.warning("UNABLE TO STOP SERVICE " + str(svc_Folder) + "/" + str(svc_Name) +
-                            "/" + str(svc_Type) + " STATUS = " + stopStatus)
+        if "success" not in stopStatus:
+            logging.warning("UNABLE TO STOP SERVICE " + clsSvc.folder + "/" + clsSvc.svcName +
+                            "/" + clsSvc.svcType + " STATUS = " + stopStatus)
         else:
-            logging.info("Service: " + str(svc_Name) + " has been stopped.")
+            logging.info("Service: " + clsSvc.svcName + " has been stopped.")
 
     except Exception, e:
-        logging.error("### ERROR ### - Stop Service failed for " + str(svc_Name) + ", System Error Message: " + str(e))
+        logging.error("### ERROR ### - Stop Service failed for " + clsSvc.svcName + ", System Error Message: " + str(e))
 
     # Try and start the service
     try:
         # Get a token from the Administrator Directory
-        tokenParams = urllib.urlencode({"f": "json", "username": svc_Username,
-                                        "password": svc_Password, "client":"requestip"})
-        tokenResponse = urllib.urlopen(svc_AdminURL + "/generateToken?", tokenParams).read()
+        tokenParams = urllib.urlencode({"f": "json", "username": clsSvc.username,
+                                        "password": clsSvc.password, "client": "requestip"})
+        tokenResponse = urllib.urlopen(clsSvc.adminURL + "/generateToken?", tokenParams).read()
         tokenResponseJSON = json.loads(tokenResponse)
         token = tokenResponseJSON["token"]
 
         # Attempt to stop the current service
         startParams = urllib.urlencode({"token": token, "f": "json"})
-        startResponse = urllib.urlopen(svc_AdminURL + "/services/" + svc_Folder + "/" + svc_Name + "." +
-                                       svc_Type + "/start?", startParams).read()
+        startResponse = urllib.urlopen(clsSvc.adminURL + "/services/" + clsSvc.folder + "/" + clsSvc.svcName + "." +
+                                       clsSvc.svcType + "/start?", startParams).read()
         startResponseJSON = json.loads(startResponse)
         startStatus = startResponseJSON["status"]
 
-        if startStatus == "success":
-            logging.info("Started service: " + str(svc_Folder) + "/" + str(svc_Name) + "/" + str(svc_Type))
+        if "success" in startStatus:
+            logging.info("Started service: " + clsSvc.folder + "/" + clsSvc.svcName + "/" + clsSvc.svcType)
         else:
-            logging.warning("UNABLE TO START SERVICE " + str(svc_Folder) + "/" + str(svc_Name) +
-                            "/" + str(svc_Type) + " STATUS = " + startStatus)
+            logging.warning("UNABLE TO START SERVICE " + clsSvc.folder + "/" + clsSvc.svcName +
+                            "/" + clsSvc.svcType + " STATUS = " + startStatus)
     except Exception, e:
-        logging.error("### ERROR ### - Start Service failed for " + str(svc_Name) + ", System Error Message: " + str(e))
+        logging.error("### ERROR ### - Start Service failed for " + clsSvc.svcName + ", System Error Message: " + str(e))
 
 
 def main():
@@ -1162,9 +1241,6 @@ def main():
         # ###########################################################################
         # Remove rasters from the mosaic dataset that are older than we want to keep.
         # ###########################################################################
-        # ------------------------------
-        # Get rid of out of date rasters
-        # ------------------------------
         logging.info("-------------------------------")
         logging.info("Removing out of date rasters...")
         logging.info("-------------------------------")
@@ -1189,9 +1265,6 @@ def main():
         # #########################################################################
         # Perform maintenance on the file geodatabase. i.e. Calc stats and compact.
         # #########################################################################
-        # -----------------------------------------------------
-        # Calculate statistics and compact the file geodatabase
-        # -----------------------------------------------------
         logging.info("-------------------------------------")
         logging.info("Performing geodatabase maintenance...")
         logging.info("-------------------------------------")
@@ -1200,9 +1273,6 @@ def main():
         time_GDBMaintenanceProcess = get_NewStart_Time()
 
         # Do some routine maintenance on the GDB mosaic...
-        # arcpy.CalculateStatistics_management(in_raster_dataset=mosaicDSPath + '/' + mosaicDS, x_skip_factor="1",
-        #                                      y_skip_factor="1", ignore_values="", skip_existing="OVERWRITE",
-        #                                      area_of_interest="Feature Set")
         logging.info("Calculating statistics...")
         arcpy.CalculateStatistics_management(GDB_mosaic, "1", "1", "#", "OVERWRITE", "#")
         logging.info("Compacting file geodatabase...")
@@ -1213,9 +1283,6 @@ def main():
         # #######################################
         # Refresh the service!
         # #######################################
-        # -----------------------------------------------------
-        # Calculate statistics and compact the file geodatabase
-        # -----------------------------------------------------
         logging.info("-----------------------------")
         logging.info("Refreshing the WMS service...")
         logging.info("-----------------------------")
@@ -1223,14 +1290,37 @@ def main():
         # Grab a timer reference
         time_RefreshServiceProcess = get_NewStart_Time()
 
-        logging.info("Refreshing the service...")
+        logging.info("Refreshing the services...")
+
+        imgSvc = MapService()
+        imgSvc.adminURL = GetConfigString('svc_adminURL')
+        imgSvc.username = GetConfigString('svc_username')
+        imgSvc.password = GetConfigString('svc_password')
+        imgSvc.folder = GetConfigString('svc_folder')
+        imgSvc.svcType = 'ImageServer'
+        imgSvc.svcName = GetConfigString('ImageSvc_Name')
+
+        mapSvc = MapService()
+        mapSvc.adminURL = GetConfigString('svc_adminURL')
+        mapSvc.username = GetConfigString('svc_username')
+        mapSvc.password = GetConfigString('svc_password')
+        mapSvc.folder = GetConfigString('svc_folder')
+        mapSvc.svcType = 'MapServer'
+        mapSvc.svcName = GetConfigString('MapSvc_Name')
 
         # Note the arcpy.PublishingTools.RefreshService() call must only be available at ArcGIS 10.6 and later
         # as it doesn't seem to work at 10.4
         ### arcpy.ImportToolbox(r'C:\temp\arcgis_localhost_siteadmin_USE_THIS_ONE.ags;System/Publishing Tools')
-        ### arcpy.PublishingTools.RefreshService("IMERG_30Min_ImgSvc", "ImageServer", "Test", "#")
+        ### arcpy.PublishingTools.RefreshService(imgSvc.svcName, imgSvc.svcType, imgSvc.folder, "#")
+        ### arcpy.PublishingTools.RefreshService(mapSvc.svcName, mapSvc.svcType, mapSvc.folder, "#")
         # ToDo... Enable this call on the server...
-        # refreshService()
+        # refreshService(imgSvc)
+        # refreshService(mapSvc)
+        # Update the JSON file used to verify service updates...
+        jsonFile = GetConfigString('JSONFile_ServiceUpdates')
+        UpdateServicesJsonFile(jsonFile,  imgSvc.svcName, o_today_DateTime)
+        UpdateServicesJsonFile(jsonFile,  mapSvc.svcName, o_today_DateTime)
+
         logging.info("\t=== PERFORMANCE ===>: RefreshServiceProcess took: " +
                      get_Elapsed_Time_As_String(time_RefreshServiceProcess))
 
