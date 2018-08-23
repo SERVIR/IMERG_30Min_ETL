@@ -45,25 +45,27 @@ Below are the configuration settings that are stored in the pickle file and thei
       'logFileDir':                     Local folder where the log file will be written.
       'logFilePrefix':                  Prefix/Name for the log file.  i.e. 'IMERG_30Min'
       'GDBPath':                        Path and filename for the file geodatabase.  i.e. 'C:/somefolder/myFileGeodatabase.gdb'
-      '1DayDSName':                     Name of the mosaic dataset for the 1 Day IMERG data.  i.e. 'IMERG1Day'
-      '3DayDSName':                     Name of the mosaic dataset for the 3 Day IMERG data.  i.e. 'IMERG3Day'
-      '7DayDSName':                     Name of the mosaic dataset for the 7 Day IMERG data.  i.e. 'IMERG7Day'
+      'mosaicDSName':                   Name of the mosaic dataset for the 30 Minute data within the file GDB.  i.e. 'IMERG'
+      'DaysToKeepRasters':              The number of days past that we want to keep rasters in the mosaic dataset.
       'rasterTimeProperty':             Name of the field in the mosaic dataset that will receive the main date/time value.  i.e. 'timestamp'
       'rasterStartTimeProperty':        Name of the field in the mosaic dataset that will receive the starting offset date/time value.  i.e. 'start_datetime'  (= 15 min prior to rasterTimeProperty)
       'rasterEndTimeProperty':          Name of the field in the mosaic dataset that will receive the ending offset date/time value.  i.e. 'end_datetime'  (= 15 min after rasterTimeProperty)
+      'rasterDataAgeProperty':          Name of the field in the mosaic dataset that will receive the value of "EARLY" or "LATE" corresponding to what dataset the raster represents.  i.e. 'Data_Age'
       'RegEx_StartDateFilterString':    A regular expression format string that helps identify the date and start timestamp portion within the IMERG filenames.  i.e. '\d{4}[01]\d[0-3]\d-S[0-2]\d{5}'
       'GDB_DateFormat':                 A format string for dates.  i.e. '%Y%m%d%H%M'
       'Filename_StartDateFormat':       A format string that helps identify the date and start timestamp portion within the IMERG filenames.  i.e. '%Y%m%d-S%H%M%S'
       'ftp_host':                       The name of the ftp site for downloading IMERG data.  i.e. 'jsimpson.pps.eosdis.nasa.gov'
       'ftp_user':                       ftp site USERNAME
       'ftp_pswrd':                      ftp site PASSWORD
-      'ftp_baseLateFolder':             ftp site base folder for where we will retrieve the 1, 3, and 7 day files.  i.e. '/data/imerg/gis'
+      'ftp_baseLateFolder':             ftp site base folder for where we will retrieve the "LATE" 30 Minute files.  i.e. '/data/imerg/gis'
+      'ftp_baseEarlyFolder':            ftp site base folder for where we will retrieve the "EARLY" 30 Minute files.  i.e. '/data/imerg/gis/early'
       'svc_adminURL':                   Base ArcGIS Admin URL for your Image Services. i.e. 'https://gis1.servirglobal.net/arcgis/admin'
       'svc_username':                   ArcGIS Admin USERNAME
       'svc_password':                   ArcGIS Admin PASSWORD
-      'svc_folder':                     Name of folder where the Image Services reside. i.e. 'Test' or 'Global' or '#' (if in root).
-      'svc_Name':                       Name of the 30 Minute Image Service
-      'svc_Type':                       Type of service.  i.e. 'ImageServer' or 'MapServer'
+      'svc_folder':                     Name of folder where the Map Service resides. i.e. 'Test' or 'Global' or '#' (if in root).
+      'ImageSvc_Name':                  Name of the 30 Minute Image Service
+      'MapSvc_Name':                    Name of the 30 Minute Map Service
+      'JSONFile_ServiceUpdates':        Path and filename of a SERIVR-specific JSON file that tracks the datetime stamp and service name that is updated.  i.e. 'C:\inetpub\wwwroot\SERVIRservices.json'
 ```
 
 ## Prerequisites:
