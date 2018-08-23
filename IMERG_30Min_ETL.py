@@ -956,7 +956,7 @@ def LoadEarlyOrLateRasters(temp_workspace, early_or_late):
     try:
         arcpy.CheckOutExtension("Spatial")
         # We do not want the zero values and we also do not want the "NoData" value of 29999.
-        # So let's extract only the values above 0 and less than 29900.
+        # So let's extract only the values above 0 and less than 29999.
         inSQLClause = "VALUE > 0 AND VALUE < 29999"
         arcpy.env.workspace = temp_workspace
         arcpy.env.overwriteOutput = True
@@ -988,6 +988,13 @@ def LoadEarlyOrLateRasters(temp_workspace, early_or_late):
                 extract = arcpy.sa.ExtractByAttributes(raster, inSQLClause)
                 finalRaster = os.path.join(final_RasterSourceFolder, raster)
                 extract.save(finalRaster)
+                # ----------
+                #  For some reason, the extract is causing the raster attribute table (.tif.vat.dbf file) to be created
+                # which is being locked (with a ...tif.vat.dbf.lock file) as users access the WMS service. The problem
+                # is that the lock file is never released and future updates to the raster are failing. Therefore, here
+                # we will just try to delete the raster attribute table right after it is created.
+                arcpy.DeleteRasterAttributeTable_management(finalRaster)
+                # ----------
                 arcpy.AddRastersToMosaicDataset_management(targetMosaic, "Raster Dataset", finalRaster,
                                                            "NO_CELL_SIZES", "NO_BOUNDARY", "NO_OVERVIEWS",
                                                            "2", "#", "#", "#", "#", "NO_SUBFOLDERS",
