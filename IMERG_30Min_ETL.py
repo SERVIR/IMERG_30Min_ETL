@@ -616,7 +616,7 @@ def ProcessLateFiles_FromProxy(oTodaysDateTime, oLastLateDateTime):
                                     urllib.urlretrieve("https://proxy.servirglobal.net/ProxyFTP.aspx?url=" +
                                                        sourceExtractFile, targetExtractFile)
                                 except:
-                                    logging.info("Error retrieving latest 1Day file from proxy: {0}".format(sourceExtractFile))
+                                    logging.info("Error retrieving file from proxy: {0}".format(sourceExtractFile))
                                     os.remove(targetExtractFile)
 
                 # Delete the temp list of filenames before moving to a new FTP folder
