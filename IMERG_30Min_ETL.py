@@ -328,8 +328,8 @@ def GetLatest_EarlyOrLateDate_fromMosaicDataset(mosaicDS, early_or_late):
                 oneDayAgo = datetime.datetime.now() - datetime.timedelta(days=1)
                 theDate = datetime.datetime.strptime(oneDayAgo.strftime(GDBDateFormat), GDBDateFormat)
             elif "LATE" in early_or_late:
-                # Randomly default to 5 days back from today
-                xDaysAgo = datetime.datetime.now() - datetime.timedelta(days=5)
+                # Randomly default to 2 days back from today
+                xDaysAgo = datetime.datetime.now() - datetime.timedelta(days=2)
                 theDate = datetime.datetime.strptime(xDaysAgo.strftime(GDBDateFormat), GDBDateFormat)  # currently %Y%m%d%H%M  i.e. 201810311630 (2018/10/31 4:30 PM)
 
         return theDate
@@ -510,6 +510,8 @@ def ProcessLateFiles(oTodaysDateTime, oLastLateDateTime):
 
             # End of "year" while loop - Increment the year
             oFolderYear = oFolderYear + 1
+            # Also need to reset the month to January...
+            oFolderMonth = 1
 
         # Disconnect from ftp
         ftp_Connection.close()
@@ -634,6 +636,8 @@ def ProcessLateFiles_FromProxy(oTodaysDateTime, oLastLateDateTime):
 
             # End of "year" while loop - Increment the year
             oFolderYear = oFolderYear + 1
+            # Also need to reset the month to January...
+            oFolderMonth = 1
 
         # Disconnect from ftp
         # ftp_Connection.close()
@@ -761,6 +765,8 @@ def ProcessEarlyFiles(oLastLateDateTime, oTodaysDateTime, oLastEarlyDateTime):
 
             # End of "year" while loop - Increment the year
             oFolderYear = oFolderYear + 1
+            # Also need to reset the month to January...
+            oFolderMonth = 1
 
         # Disconnect from ftp
         ftp_Connection.close()
@@ -893,6 +899,8 @@ def ProcessEarlyFiles_FromProxy(oLastLateDateTime, oTodaysDateTime, oLastEarlyDa
 
             # End of "year" while loop - Increment the year
             oFolderYear = oFolderYear + 1
+            # Also need to reset the month to January...
+            oFolderMonth = 1
 
         # Disconnect from ftp
         # ftp_Connection.close()
