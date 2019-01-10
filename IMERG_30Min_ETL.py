@@ -1330,7 +1330,8 @@ def main():
         ### arcpy.PublishingTools.RefreshService(mapSvc.svcName, mapSvc.svcType, mapSvc.folder, "#")
         # ToDo... Enable this call on the server...
         # refreshService(imgSvc)
-        # refreshService(mapSvc)
+        refreshService(mapSvc)
+
         # Update the JSON file used to verify service updates...
         jsonFile = GetConfigString('JSONFile_ServiceUpdates')
         UpdateServicesJsonFile(jsonFile,  imgSvc.svcName, o_today_DateTime)
